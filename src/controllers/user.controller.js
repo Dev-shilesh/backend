@@ -24,7 +24,7 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User email or username already exists");
     }
 
-    
+
     const avatarLocalPath = req.files?.avatar[0]?.path;
     //const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
@@ -80,6 +80,53 @@ const generateAccessAndRefreshToken = async (userId) => {
         throw new ApiError(500, "Something went wrong while generating access and refresh token", error);
     }
 };
+
+const refreshAccessToken = async (req, res) => {
+    const incomingRefreshToken = req.cookie.refreshAccessToken || req.body.refreshToken;
+
+    if (incomingRefreshToken) {
+        throw new ApiError(401, "Unauthenticated request")
+
+    }
+    try {
+        const decodedToken = jwt.verify(
+            incomingRefreshToken,
+            process.env.REFRESH_TOKEN_SECRET,
+
+        )
+
+        const user = User.findById(decodedToken?._id)
+
+        if (!user) {
+            throw new ApiError(401, "Invalid refresh Token");
+        }
+
+        if (incomingRefreshToken !== user?.refreshToken) {
+            throw new ApiError(401, "fresh token is expired");
+        }
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+
+        const { accessToken, newRefreshToken } = await generateAccessAndRefreshToken(user._id)
+        return res
+            .status(200)
+            .cookie("accessToken", accessToken, options)
+            .cookie("refreshToken", newRefreshToken, options)
+            .json(
+                new ApiResponse(
+                    200,
+                    {
+                        accessToken, refreshToken: newRefreshToken
+                    },
+                    "Access token successfully"
+                )
+            )
+    } catch (error) {
+        throw new ApiError(401, error.message || "Invalid access token")
+    }
+}
 
 const loginUser = asyncHandler(async (req, res) => {
     const { email, userName, password } = req.body;
@@ -142,4 +189,4 @@ const logoutUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "User logged out"));
 });
 
-export { registerUser, loginUser, logoutUser };
+export { registerUser, loginUser, logoutUser,refreshAccessToken };
