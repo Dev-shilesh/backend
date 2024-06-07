@@ -84,7 +84,7 @@ const generateAccessAndRefreshToken = async (userId) => {
 const refreshAccessToken = async (req, res) => {
     const incomingRefreshToken = req.cookie.refreshAccessToken || req.body.refreshToken;
 
-    if (incomingRefreshToken) {
+    if (!incomingRefreshToken) {
         throw new ApiError(401, "Unauthenticated request")
 
     }
